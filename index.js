@@ -10,7 +10,7 @@ const {
 const { isoBase64URL } = require('@simplewebauthn/server/helpers');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // Session configuration
 app.use(session({
@@ -22,10 +22,22 @@ app.use(session({
 app.use(express.json());
 app.use(express.static('public'));
 
-// RPサーバーの設定
-const rpName = 'FIDO2 Test App';
-const rpID = 'localhost';
-const origin = `http://${rpID}:${port}`;
+// RPサーバーの設定を動的に行う関数
+function getRPSettings(req) {
+  // GitHub Codespacesの環境変数をチェック
+  const codespacesDomain = process.env.CODESPACE_NAME ? 
+    `${process.env.CODESPACE_NAME}-${port}.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}` :
+    `localhost:${port}`;
+
+  const isSecure = process.env.CODESPACE_NAME ? true : false;
+  const rpID = codespacesDomain.split(':')[0]; // ポート番号を除外
+
+  return {
+    rpName: 'FIDO2 Test App',
+    rpID: rpID,
+    origin: `${isSecure ? 'https' : 'http'}://${codespacesDomain}`
+  };
+}
 
 // ユーザーデータを保存する簡易的なストア
 const userStore = new Map();
@@ -38,10 +50,11 @@ app.get('/', (req, res) => {
 app.post('/generate-registration-options', async (req, res) => {
   const userId = 'test-user-' + Math.random().toString(36).substring(7);
   const username = 'testuser';
+  const rpSettings = getRPSettings(req);
 
   const options = await generateRegistrationOptions({
-    rpName,
-    rpID,
+    rpName: rpSettings.rpName,
+    rpID: rpSettings.rpID,
     userID: userId,
     userName: username,
     attestationType: 'none',
@@ -55,6 +68,8 @@ app.post('/generate-registration-options', async (req, res) => {
   req.session.currentChallenge = options.challenge;
   req.session.userId = userId;
   req.session.username = username;
+  req.session.rpID = rpSettings.rpID;
+  req.session.origin = rpSettings.origin;
 
   res.json(options);
 });
@@ -67,8 +82,8 @@ app.post('/verify-registration', async (req, res) => {
     const verification = await verifyRegistrationResponse({
       response: body,
       expectedChallenge: req.session.currentChallenge,
-      expectedOrigin: origin,
-      expectedRPID: rpID
+      expectedOrigin: req.session.origin,
+      expectedRPID: req.session.rpID
     });
 
     const { verified, registrationInfo } = verification;
@@ -101,13 +116,14 @@ app.post('/verify-registration', async (req, res) => {
 // 認証オプションの生成
 app.post('/generate-authentication-options', async (req, res) => {
   const user = userStore.get(req.session.userId);
+  const rpSettings = getRPSettings(req);
   
   if (!user) {
     return res.status(400).json({ error: 'User not found' });
   }
 
   const options = await generateAuthenticationOptions({
-    rpID,
+    rpID: rpSettings.rpID,
     allowCredentials: user.credentials.map(cred => ({
       id: cred.credentialID,
       type: 'public-key',
@@ -117,6 +133,8 @@ app.post('/generate-authentication-options', async (req, res) => {
   });
 
   req.session.currentChallenge = options.challenge;
+  req.session.rpID = rpSettings.rpID;
+  req.session.origin = rpSettings.origin;
 
   res.json(options);
 });
@@ -145,8 +163,8 @@ app.post('/verify-authentication', async (req, res) => {
     const verification = await verifyAuthenticationResponse({
       response: body,
       expectedChallenge: req.session.currentChallenge,
-      expectedOrigin: origin,
-      expectedRPID: rpID,
+      expectedOrigin: req.session.origin,
+      expectedRPID: req.session.rpID,
       authenticator: credential,
     });
 
@@ -165,5 +183,7 @@ app.post('/verify-authentication', async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+  const rpSettings = getRPSettings({});
+  console.log(`Server running at ${rpSettings.origin}`);
+  console.log(`Using RP ID: ${rpSettings.rpID}`);
 }); 
