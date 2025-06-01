@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIDO2 Test with Ledger Nano X</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+        .info {
+            background-color: #d9edf7;
+            color: #31708f;
+        }
+        .step-container {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .step {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        .step-number {
+            width: 24px;
+            height: 24px;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        .step.active {
+            background-color: #fff3cd;
+        }
+        .step.completed {
+            background-color: #d4edda;
+        }
+        .ledger-status {
+            display: flex;
+            align-items: center;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .ledger-icon {
+            width: 40px;
+            height: 40px;
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        .log-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #2b2b2b;
+            color: #e6e6e6;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+            height: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            resize: vertical;
+            min-height: 300px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 8px;
+            border-bottom: 1px solid #3d3d3d;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .log-entry:hover {
+            background-color: #333;
+        }
+        .log-timestamp {
+            color: #87ceeb;
+            margin-right: 10px;
+        }
+        .log-level {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .log-level.info { background-color: #4a4a4a; color: #87ceeb; }
+        .log-level.debug { background-color: #4a4a4a; color: #98fb98; }
+        .log-level.warn { background-color: #4a4a4a; color: #ffd700; }
+        .log-level.error { background-color: #4a4a4a; color: #ff6b6b; }
+        .log-message { color: #e6e6e6; }
+        .log-data {
+            color: #98fb98;
+            margin-top: 8px;
+            margin-left: 24px;
+            font-size: 13px;
+            background-color: #1e1e1e;
+            padding: 8px;
+            border-radius: 4px;
+            border-left: 3px solid #4a4a4a;
+        }
+        .log-controls {
+            position: sticky;
+            top: 0;
+            background-color: #2b2b2b;
+            padding: 10px 0;
+            border-bottom: 1px solid #3d3d3d;
+            z-index: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .log-title {
+            color: #e6e6e6;
+            margin: 0;
+            font-size: 16px;
+        }
+        .log-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        #logEntries {
+            padding-top: 10px;
+            height: calc(100% - 50px);
+            overflow-y: auto;
+        }
+        .resize-handle {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background-color: #3d3d3d;
+            cursor: ns-resize;
+        }
+        .resize-handle:hover {
+            background-color: #4a4a4a;
+        }
+        @media (max-height: 900px) {
+            .log-container {
+                height: 400px;
+            }
+        }
+        .copy-button {
+            float: right;
+            background-color: #4a4a4a;
+            color: #e6e6e6;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .copy-button:hover {
+            background-color: #5a5a5a;
+        }
+        .clear-button {
+            float: right;
+            background-color: #4a4a4a;
+            color: #e6e6e6;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+        .clear-button:hover {
+            background-color: #5a5a5a;
+        }
+    </style>
+</head>
+<body>
+    <h1>FIDO2 Test with Ledger Nano X</h1>
+    
+    <div class="container">
+        <h2>登録</h2>
+        <p>Ledger Nano Xを接続し、登録ボタンをクリックしてください。</p>
+        <button onclick="register()" id="registerBtn">登録</button>
+    </div>
+
+    <div class="container">
+        <h2>認証</h2>
+        <p>登録済みのLedger Nano Xで認証を行います。</p>
+        <button onclick="authenticate()" id="authBtn">認証</button>
+    </div>
+
+    <div class="ledger-status" id="ledgerStatus">
+        <div class="ledger-icon">📱</div>
+        <div id="ledgerStatusText">Ledger未接続</div>
+    </div>
+
+    <div class="step-container" id="stepContainer" style="display: none;">
+        <h3>処理ステップ</h3>
+        <div class="step" id="step1">
+            <div class="step-number">1</div>
+            <div class="step-text">Ledger Nano Xとの接続確認</div>
+        </div>
+        <div class="step" id="step2">
+            <div class="step-number">2</div>
+            <div class="step-text">FIDO2アプリケーションの起動</div>
+        </div>
+        <div class="step" id="step3">
+            <div class="step-number">3</div>
+            <div class="step-text">ユーザー認証（PINコード）</div>
+        </div>
+        <div class="step" id="step4">
+            <div class="step-number">4</div>
+            <div class="step-text">操作の確認</div>
+        </div>
+        <div class="step" id="step5">
+            <div class="step-number">5</div>
+            <div class="step-text">処理完了</div>
+        </div>
+    </div>
+
+    <div id="status"></div>
+
+    <div class="log-container" id="logContainer">
+        <div class="log-controls">
+            <h3 class="log-title">詳細ログ</h3>
+            <div class="log-buttons">
+                <button class="clear-button" onclick="clearLogs()">ログをクリア</button>
+                <button class="copy-button" onclick="copyLogs()">ログをコピー</button>
+            </div>
+        </div>
+        <div id="logEntries"></div>
+        <div class="resize-handle" id="resizeHandle"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
+    <script>
+        const { startRegistration, startAuthentication } = SimpleWebAuthnBrowser;
+
+        function formatTimestamp() {
+            const now = new Date();
+            return now.toISOString();
+        }
+
+        // リサイズハンドラーの追加
+        const resizeHandle = document.getElementById('resizeHandle');
+        const logContainer = document.getElementById('logContainer');
+        let isResizing = false;
+        let startY;
+        let startHeight;
+
+        resizeHandle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startY = e.clientY;
+            startHeight = parseInt(document.defaultView.getComputedStyle(logContainer).height, 10);
+            
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', () => {
+                isResizing = false;
+                document.removeEventListener('mousemove', handleMouseMove);
+            });
+        });
+
+        function handleMouseMove(e) {
+            if (!isResizing) return;
+            
+            const newHeight = startHeight + (e.clientY - startY);
+            if (newHeight >= 300) { // 最小高さを300pxに設定
+                logContainer.style.height = `${newHeight}px`;
+            }
+        }
+
+        // ログエントリの自動スクロールを改善
+        function addLogEntry(level, message, data = null) {
+            const logEntries = document.getElementById('logEntries');
+            const wasScrolledToBottom = logEntries.scrollHeight - logEntries.clientHeight <= logEntries.scrollTop + 1;
+            
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+
+            const timestamp = document.createElement('span');
+            timestamp.className = 'log-timestamp';
+            timestamp.textContent = formatTimestamp();
+
+            const levelSpan = document.createElement('span');
+            levelSpan.className = `log-level ${level}`;
+            levelSpan.textContent = level.toUpperCase();
+
+            const messageSpan = document.createElement('span');
+            messageSpan.className = 'log-message';
+            messageSpan.textContent = message;
+
+            entry.appendChild(timestamp);
+            entry.appendChild(levelSpan);
+            entry.appendChild(messageSpan);
+
+            if (data) {
+                const dataDiv = document.createElement('div');
+                dataDiv.className = 'log-data';
+                if (typeof data === 'object') {
+                    dataDiv.textContent = JSON.stringify(data, null, 2);
+                } else {
+                    dataDiv.textContent = data;
+                }
+                entry.appendChild(dataDiv);
+            }
+
+            logEntries.appendChild(entry);
+            
+            // スクロールが一番下にあった場合のみ自動スクロール
+            if (wasScrolledToBottom) {
+                logEntries.scrollTop = logEntries.scrollHeight;
+            }
+        }
+
+        function copyLogs() {
+            const logEntries = document.getElementById('logEntries');
+            const logText = logEntries.innerText;
+            navigator.clipboard.writeText(logText).then(() => {
+                addLogEntry('info', 'ログをクリップボードにコピーしました');
+            });
+        }
+
+        function clearLogs() {
+            const logEntries = document.getElementById('logEntries');
+            logEntries.innerHTML = '';
+            addLogEntry('info', 'ログをクリアしました');
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = type;
+        }
+
+        function updateLedgerStatus(message, isConnected = false) {
+            const ledgerStatusText = document.getElementById('ledgerStatusText');
+            const ledgerIcon = document.querySelector('.ledger-icon');
+            ledgerStatusText.textContent = message;
+            ledgerIcon.innerHTML = isConnected ? '✅' : '📱';
+        }
+
+        function updateStep(stepNumber, status) {
+            const step = document.getElementById(`step${stepNumber}`);
+            if (status === 'active') {
+                step.className = 'step active';
+            } else if (status === 'completed') {
+                step.className = 'step completed';
+            } else {
+                step.className = 'step';
+            }
+        }
+
+        function resetSteps() {
+            for (let i = 1; i <= 5; i++) {
+                updateStep(i, '');
+            }
+        }
+
+        function showSteps() {
+            document.getElementById('stepContainer').style.display = 'block';
+            resetSteps();
+        }
+
+        async function register() {
+            const registerBtn = document.getElementById('registerBtn');
+            const authBtn = document.getElementById('authBtn');
+            registerBtn.disabled = true;
+            authBtn.disabled = true;
+
+            try {
+                showSteps();
+                updateStep(1, 'active');
+                showStatus('Ledger Nano Xとの接続を確認中...', 'info');
+                addLogEntry('info', 'FIDO2登録プロセスを開始');
+
+                // 登録オプションの取得
+                addLogEntry('debug', '登録オプションをサーバーに要求中');
+                const optionsRes = await fetch('/generate-registration-options', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                const options = await optionsRes.json();
+                addLogEntry('debug', '登録オプションを受信', {
+                    rp: { name: options.rp.name, id: options.rp.id },
+                    user: { name: options.user.name, id: options.user.id },
+                    pubKeyCredParams: options.pubKeyCredParams,
+                    authenticatorSelection: options.authenticatorSelection,
+                    timeout: options.timeout
+                });
+
+                updateStep(1, 'completed');
+                updateStep(2, 'active');
+                updateLedgerStatus('Ledger接続完了、FIDO2アプリを起動してください', true);
+                showStatus('FIDO2アプリケーションを起動してください', 'info');
+                addLogEntry('info', 'Ledger Nano Xとの接続確立');
+
+                // 認証器での登録の実行
+                addLogEntry('debug', 'WebAuthn API経由で登録プロセスを開始');
+                const attResp = await startRegistration(options);
+                addLogEntry('debug', '認証器からの応答を受信', {
+                    id: attResp.id,
+                    type: attResp.type,
+                    attestationFormat: attResp.response.attestationObject ? 'available' : 'none'
+                });
+
+                updateStep(2, 'completed');
+                updateStep(3, 'active');
+                showStatus('PINコードを入力してください', 'info');
+                addLogEntry('info', 'ユーザー認証を要求');
+
+                // 登録応答の検証
+                addLogEntry('debug', '登録応答の検証をサーバーに要求');
+                const verificationRes = await fetch('/verify-registration', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(attResp),
+                });
+
+                const verificationResult = await verificationRes.json();
+                addLogEntry('debug', 'サーバーからの検証結果を受信', verificationResult);
+
+                updateStep(3, 'completed');
+                updateStep(4, 'active');
+                showStatus('Ledger上で操作を確認してください', 'info');
+                addLogEntry('info', 'Ledger上での確認を待機中');
+
+                if (verificationResult.verified) {
+                    updateStep(4, 'completed');
+                    updateStep(5, 'completed');
+                    showStatus('登録が完了しました！', 'success');
+                    updateLedgerStatus('登録完了', true);
+                    addLogEntry('info', '登録プロセスが正常に完了');
+                } else {
+                    throw new Error('登録の検証に失敗しました');
+                }
+            } catch (error) {
+                console.error(error);
+                showStatus(`エラー: ${error.message}`, 'error');
+                updateLedgerStatus('エラーが発生しました');
+                resetSteps();
+                addLogEntry('error', `登録プロセスでエラーが発生: ${error.message}`, error.stack);
+            } finally {
+                registerBtn.disabled = false;
+                authBtn.disabled = false;
+            }
+        }
+
+        async function authenticate() {
+            const registerBtn = document.getElementById('registerBtn');
+            const authBtn = document.getElementById('authBtn');
+            registerBtn.disabled = true;
+            authBtn.disabled = true;
+
+            try {
+                showSteps();
+                updateStep(1, 'active');
+                showStatus('Ledger Nano Xとの接続を確認中...', 'info');
+                addLogEntry('info', 'FIDO2認証プロセスを開始');
+
+                // 認証オプションの取得
+                addLogEntry('debug', '認証オプションをサーバーに要求中');
+                const optionsRes = await fetch('/generate-authentication-options', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                const options = await optionsRes.json();
+                addLogEntry('debug', '認証オプションを受信', {
+                    rpId: options.rpId,
+                    allowCredentials: options.allowCredentials,
+                    userVerification: options.userVerification,
+                    timeout: options.timeout
+                });
+
+                updateStep(1, 'completed');
+                updateStep(2, 'active');
+                updateLedgerStatus('Ledger接続完了、FIDO2アプリを起動してください', true);
+                showStatus('FIDO2アプリケーションを起動してください', 'info');
+                addLogEntry('info', 'Ledger Nano Xとの接続確立');
+
+                // 認証器での認証の実行
+                addLogEntry('debug', 'WebAuthn API経由で認証プロセスを開始');
+                const attResp = await startAuthentication(options);
+                addLogEntry('debug', '認証器からの応答を受信', {
+                    id: attResp.id,
+                    type: attResp.type,
+                    authenticatorData: attResp.response.authenticatorData ? 'available' : 'none'
+                });
+
+                updateStep(2, 'completed');
+                updateStep(3, 'active');
+                showStatus('PINコードを入力してください', 'info');
+                addLogEntry('info', 'ユーザー認証を要求');
+
+                // 認証応答の検証
+                addLogEntry('debug', '認証応答の検証をサーバーに要求');
+                const verificationRes = await fetch('/verify-authentication', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(attResp),
+                });
+
+                const verificationResult = await verificationRes.json();
+                addLogEntry('debug', 'サーバーからの検証結果を受信', verificationResult);
+
+                updateStep(3, 'completed');
+                updateStep(4, 'active');
+                showStatus('Ledger上で操作を確認してください', 'info');
+                addLogEntry('info', 'Ledger上での確認を待機中');
+
+                if (verificationResult.verified) {
+                    updateStep(4, 'completed');
+                    updateStep(5, 'completed');
+                    showStatus('認証成功！', 'success');
+                    updateLedgerStatus('認証完了', true);
+                    addLogEntry('info', '認証プロセスが正常に完了');
+                } else {
+                    throw new Error('認証に失敗しました');
+                }
+            } catch (error) {
+                console.error(error);
+                showStatus(`エラー: ${error.message}`, 'error');
+                updateLedgerStatus('エラーが発生しました');
+                resetSteps();
+                addLogEntry('error', `認証プロセスでエラーが発生: ${error.message}`, error.stack);
+            } finally {
+                registerBtn.disabled = false;
+                authBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html> 

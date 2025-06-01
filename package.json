@@ -1,0 +1,19 @@
+{
+  "name": "fido2-test",
+  "version": "1.0.0",
+  "description": "FIDO2 testing with Ledger Nano X",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "@simplewebauthn/browser": "^8.3.4",
+    "@simplewebauthn/server": "^8.3.4",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+} 
